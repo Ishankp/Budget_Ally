@@ -5,7 +5,10 @@ How to run (Windows / PowerShell)
 
 1) Backend (Flask + SQLite)
 ---------------------------
-Open PowerShell, go to the Backend folder, create & activate a venv, install deps, and start the app:
+
+Backend (Flask + SQLite)
+------------------------
+Open PowerShell and run:
 
 ```powershell
 cd 'C:\Users\Ishan Patel\Downloads\Hackathon\Budget_Ally\Backend'
@@ -15,7 +18,7 @@ pip install -r requirements.txt
 python app.py
 ```
 
-The backend listens on http://localhost:5000 (or http://127.0.0.1:5000).
+The backend listens on http://localhost:5000
 
 2) Frontend — two options
 -------------------------
@@ -31,19 +34,18 @@ Open: http://localhost:5173/auth.html
 
 This serves the static `auth.html` demo which uses the backend endpoints directly.
 
-Option B — React app (recommended for development)
 
+Option B — React app (recommended for development)
+-----------------------------------------------
 Prerequisite: Node.js (includes npm). Download/install from https://nodejs.org/ if you haven't.
 
 In PowerShell:
-
 ```powershell
 cd 'C:\Users\Ishan Patel\Downloads\Hackathon\Budget_Ally\Frontend'
 npm install
 npm run dev
 ```
-
-Open the URL printed by Vite (usually http://localhost:5173/) — open the root URL to load the React app (index.html → src/main.jsx → App).
+Open http://localhost:5173/ to view the React app (index.html → src/main.jsx → App).
 
 Troubleshooting tips
 --------------------

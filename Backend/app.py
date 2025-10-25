@@ -7,6 +7,22 @@ import json
 import uuid
 import hashlib
 
+# ...existing code...
+
+# Paginated transactions endpoint (moved below app initialization)
+
+# ...existing code...
+from flask import Flask, jsonify, request, abort
+from flask_sqlalchemy import SQLAlchemy
+from flask_cors import CORS
+import os
+import os
+import json
+import uuid
+import hashlib
+import plaid
+from plaid.api import plaid_api
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, 'budget.db')
 
@@ -19,20 +35,42 @@ db = SQLAlchemy(app)
 CORS(app)
 
 
-class BudgetItem(db.Model):
+
+
+
+class Account(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(120), nullable=False)
+    account_id = db.Column(db.String(128), unique=True, nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    name = db.Column(db.String(128), nullable=False)
+    type = db.Column(db.String(64), nullable=False)
+    subtype = db.Column(db.String(64), nullable=True)
+    mask = db.Column(db.String(16), nullable=True)
+    official_name = db.Column(db.String(128), nullable=True)
+    current_balance = db.Column(db.Float, nullable=True)
+    available_balance = db.Column(db.Float, nullable=True)
+
+class Transaction(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    transaction_id = db.Column(db.String(128), unique=True, nullable=False)
+    account_id = db.Column(db.String(128), db.ForeignKey('account.account_id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    date = db.Column(db.String(32), nullable=False)
     amount = db.Column(db.Float, nullable=False)
-    category = db.Column(db.String(80), nullable=True)
-
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'name': self.name,
-            'amount': self.amount,
-            'category': self.category,
-        }
-
+    name = db.Column(db.String(256), nullable=False)
+    merchant_name = db.Column(db.String(256), nullable=True)
+    category = db.Column(db.String(128), nullable=True)
+    pending = db.Column(db.Boolean, nullable=True)
+# Endpoint to delete all account and transaction records for the current user
+@app.route('/api/cleanup_accounts', methods=['POST'])
+def cleanup_accounts():
+    user = get_user_from_token()
+    if not user:
+        return jsonify({'error': 'unauthorized'}), 401
+    Account.query.filter_by(user_id=user.id).delete()
+    Transaction.query.filter_by(user_id=user.id).delete()
+    db.session.commit()
+    return jsonify({'message': 'All account and transaction data deleted for user.'}), 200
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -73,50 +111,6 @@ else:
         create_tables()
 
 
-@app.route('/api/items', methods=['GET'])
-def list_items():
-    items = BudgetItem.query.all()
-    return jsonify([i.to_dict() for i in items])
-
-
-@app.route('/api/items/<int:item_id>', methods=['GET'])
-def get_item(item_id):
-    item = BudgetItem.query.get_or_404(item_id)
-    return jsonify(item.to_dict())
-
-
-@app.route('/api/items', methods=['POST'])
-def create_item():
-    data = request.get_json() or {}
-    name = data.get('name')
-    amount = data.get('amount')
-    category = data.get('category')
-    if not name or amount is None:
-        return jsonify({'error': 'name and amount are required'}), 400
-    item = BudgetItem(name=name, amount=float(amount), category=category)
-    db.session.add(item)
-    db.session.commit()
-    return jsonify(item.to_dict()), 201
-
-
-@app.route('/api/items/<int:item_id>', methods=['PUT'])
-def update_item(item_id):
-    item = BudgetItem.query.get_or_404(item_id)
-    data = request.get_json() or {}
-    item.name = data.get('name', item.name)
-    if 'amount' in data:
-        item.amount = float(data['amount'])
-    item.category = data.get('category', item.category)
-    db.session.commit()
-    return jsonify(item.to_dict())
-
-
-@app.route('/api/items/<int:item_id>', methods=['DELETE'])
-def delete_item(item_id):
-    item = BudgetItem.query.get_or_404(item_id)
-    db.session.delete(item)
-    db.session.commit()
-    return jsonify({'message': 'deleted'}), 200
 
 
 # ---- Auth endpoints ----
@@ -136,8 +130,16 @@ def register():
     return jsonify({'message': 'registered'}), 201
 
 
+
 @app.route('/api/login', methods=['POST'])
 def login():
+    import datetime
+    from plaid.model.transactions_get_request import TransactionsGetRequest
+    from plaid.model.transactions_get_request_options import TransactionsGetRequestOptions
+    from plaid.model.accounts_get_request import AccountsGetRequest
+    from plaid.model.item_public_token_exchange_request import ItemPublicTokenExchangeRequest
+    from plaid.model.products import Products
+    from plaid.model.country_code import CountryCode
     data = request.get_json() or {}
     username = data.get('username')
     password = data.get('password')
@@ -148,7 +150,78 @@ def login():
         return jsonify({'error': 'invalid credentials'}), 401
     token = user.generate_token()
     db.session.commit()
+
+    # Plaid sandbox: fetch 2 months of transactions and save to DB
+    try:
+        # Use a sandbox public_token for demo
+        public_token = 'public-sandbox-8a0b6b6a-xxxx-xxxx-xxxx-xxxxxxxxxxxx'  # Plaid official example token
+        exchange_request = ItemPublicTokenExchangeRequest(public_token=public_token)
+        exchange_response = client.item_public_token_exchange(exchange_request)
+        access_token = exchange_response['access_token']
+
+        # Get accounts
+        accounts_request = AccountsGetRequest(access_token=access_token)
+        accounts_response = client.accounts_get(accounts_request)
+        accounts = accounts_response['accounts']
+        for acc in accounts:
+            account = Account(
+                account_id=acc['account_id'],
+                user_id=user.id,
+                name=acc.get('name', ''),
+                type=acc.get('type', ''),
+                subtype=acc.get('subtype', ''),
+                mask=acc.get('mask', ''),
+                official_name=acc.get('official_name', ''),
+                current_balance=acc['balances'].get('current'),
+                available_balance=acc['balances'].get('available'),
+            )
+            db.session.merge(account)
+        db.session.commit()
+
+        # Get transactions for last 2 months
+        end_date = datetime.date.today()
+        start_date = end_date - datetime.timedelta(days=60)
+        tx_request = TransactionsGetRequest(
+            access_token=access_token,
+            start_date=start_date.isoformat(),
+            end_date=end_date.isoformat(),
+            options=TransactionsGetRequestOptions(count=100)
+        )
+        tx_response = client.transactions_get(tx_request)
+        transactions = tx_response['transactions']
+        for tx in transactions:
+            transaction = Transaction(
+                transaction_id=tx['transaction_id'],
+                account_id=tx['account_id'],
+                user_id=user.id,
+                date=tx['date'],
+                amount=tx['amount'],
+                name=tx.get('name', ''),
+                merchant_name=tx.get('merchant_name', ''),
+                category=','.join(tx.get('category', [])),
+                pending=tx.get('pending', False)
+            )
+            db.session.merge(transaction)
+        db.session.commit()
+    except Exception as e:
+        print('Plaid fetch error:', e)
+
     return jsonify({'token': token})
+
+
+# Logout endpoint that also triggers cleanup
+@app.route('/api/logout', methods=['POST'])
+def logout():
+    user = get_user_from_token()
+    if not user:
+        return jsonify({'error': 'unauthorized'}), 401
+    # Remove all account and transaction data for this user
+    Account.query.filter_by(user_id=user.id).delete()
+    Transaction.query.filter_by(user_id=user.id).delete()
+    # Remove token to log out
+    user.token = None
+    db.session.commit()
+    return jsonify({'message': 'Logged out and all account/transaction data deleted.'}), 200
 
 
 def get_user_from_token():
@@ -169,6 +242,18 @@ def protected_hello():
 
 
 # Plaid integration removed — endpoints deleted per user request
+client_id='68fc90a53089da001f96572c'
+secret = 'b6acf18dba24078a0985ba402443b3'
+configuration = plaid.Configuration(
+    host=plaid.Environment.Sandbox,
+    api_key={
+        'clientId': client_id,
+        'secret': secret,
+    }
+)
+
+api_client = plaid.ApiClient(configuration)
+client = plaid_api.PlaidApi(api_client)
 
 
 if __name__ == '__main__':

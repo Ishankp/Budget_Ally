@@ -126,6 +126,35 @@ export default function App() {
         setSuccess('')
     }
 
+    // Transaction pagination state
+    const [transactions, setTransactions] = useState([])
+    const [page, setPage] = useState(1)
+    const [hasNext, setHasNext] = useState(false)
+    const [hasPrev, setHasPrev] = useState(false)
+    const [txLoading, setTxLoading] = useState(false)
+
+    useEffect(() => {
+        if (mode === 'hello' && token) {
+            setTxLoading(true)
+            fetch(`${API}/api/transactions?page=${page}&per_page=10`, {
+                headers: { Authorization: `Bearer ${token}` }
+            })
+                .then(r => r.json())
+                .then(data => {
+                    setTransactions(data.transactions || [])
+                    setHasNext(data.has_next)
+                    setHasPrev(data.has_prev)
+                    setTxLoading(false)
+                })
+                .catch(() => {
+                    setTransactions([])
+                    setHasNext(false)
+                    setHasPrev(false)
+                    setTxLoading(false)
+                })
+        }
+    }, [mode, token, page])
+
     if (mode === 'hello') {
         return (
             <div style={cardStyle}>
@@ -134,7 +163,28 @@ export default function App() {
                     <button style={buttonStyle} onClick={logout}>Sign Out</button>
                 </div>
                 <div style={{ marginTop: 12 }}>
-                    <p style={{ color: '#555' }}>Plaid integration has been removed. You can re-add it later.</p>
+                    <h3 style={{ color: '#333', marginBottom: 8 }}>Recent Transactions</h3>
+                    {txLoading ? (
+                        <div style={{ color: '#888' }}>Loading transactions...</div>
+                    ) : transactions.length === 0 ? (
+                        <div style={{ color: '#888' }}>No transactions found.</div>
+                    ) : (
+                        <ul style={{ padding: 0, listStyle: 'none' }}>
+                            {transactions.map(tx => (
+                                <li key={tx.transaction_id} style={{ marginBottom: 10, borderBottom: '1px solid #eee', paddingBottom: 6 }}>
+                                    <b>{tx.name}</b> <span style={{ color: '#888' }}>({tx.date})</span><br />
+                                    <span>Amount: <b>${tx.amount}</b></span><br />
+                                    <span>Account: <b>{tx.account_id}</b></span>
+                                    {tx.merchant_name && <span><br />Merchant: {tx.merchant_name}</span>}
+                                    {tx.category && <span><br />Category: {tx.category}</span>}
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                    <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
+                        <button style={buttonStyle} onClick={() => setPage(page - 1)} disabled={!hasPrev || txLoading}>Previous</button>
+                        <button style={buttonStyle} onClick={() => setPage(page + 1)} disabled={!hasNext || txLoading}>Next</button>
+                    </div>
                 </div>
             </div>
         )
