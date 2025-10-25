@@ -188,7 +188,7 @@ export default function App() {
 			<div style={cardStyle}>
 				<h1 style={{ color: '#0b5cff', marginBottom: 24 }}>{message}</h1>
 				<div style={{ display: 'flex', gap: 12, marginBottom: 24 }}>
-					<button style={buttonStyle} onClick={logout}>Logout</button>
+					<button style={buttonStyle} onClick={logout}>Sign Out</button>
 					<button style={buttonStyle} onClick={connectPlaid} disabled={plaidLoading || plaidLinked}>
 						{plaidLinked ? 'Plaid Connected' : 'Connect to Plaid'}
 					</button>
