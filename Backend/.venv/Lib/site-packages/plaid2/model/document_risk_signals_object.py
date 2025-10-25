@@ -1,0 +1,36 @@
+from typing import Any, Dict, List, Optional, Union
+from enum import Enum
+from pydantic import BaseModel, Field
+from .multi_document_risk_signal import MultiDocumentRiskSignal
+from .single_document_risk_signal import SingleDocumentRiskSignal
+
+
+class DocumentRiskSignalsObject(BaseModel):
+    multi_document_risk_signals: List[MultiDocumentRiskSignal]
+    """Array of risk signals computed from a set of uploaded documents and the associated documents' metadata"""
+
+    account_id: Optional[str] = None
+    """ID of the payroll provider account."""
+
+    single_document_risk_signals: List[SingleDocumentRiskSignal]
+    """Array of document metadata and associated risk signals per document"""
+
+    def json(self, **kwargs: Any) -> str:
+        """Return a json string representation of the object. Takes same keyword arguments as pydantic.BaseModel.json"""
+        kwargs.setdefault("by_alias", True)
+        return super().json(**kwargs)
+
+    def dict(self, **kwargs: Any) -> Dict[str, Any]:
+        """Return a dict representation of the object. Takes same keyword arguments as pydantic.BaseModel.dict"""
+        kwargs.setdefault("by_alias", True)
+        return super().dict(**kwargs)
+
+    @classmethod
+    def parse_obj(cls, data: Any) -> "DocumentRiskSignalsObject":
+        """Parse a dict into the object. Takes same keyword arguments as pydantic.BaseModel.parse_obj"""
+        return super().parse_obj(data)
+
+    @classmethod
+    def parse_raw(cls, b: Union[bytes, str], **kwargs: Any) -> "DocumentRiskSignalsObject":
+        """Parse a json string into the object. Takes same keyword arguments as pydantic.BaseModel.parse_raw"""
+        return super().parse_raw(b, **kwargs)

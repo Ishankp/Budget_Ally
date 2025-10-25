@@ -1,0 +1,34 @@
+from typing import Any, Dict, List, Optional, Union
+from enum import Enum
+from pydantic import BaseModel, Field
+
+
+class IdentityVerificationStepUpdatedWebhook(BaseModel):
+    webhook_type: str
+    """`IDENTITY_VERIFCATION`"""
+
+    webhook_code: str
+    """`STEP_UPDATED`"""
+
+    identity_verification_id: Any
+    """The ID of the associated Identity Verification attempt."""
+
+    def json(self, **kwargs: Any) -> str:
+        """Return a json string representation of the object. Takes same keyword arguments as pydantic.BaseModel.json"""
+        kwargs.setdefault("by_alias", True)
+        return super().json(**kwargs)
+
+    def dict(self, **kwargs: Any) -> Dict[str, Any]:
+        """Return a dict representation of the object. Takes same keyword arguments as pydantic.BaseModel.dict"""
+        kwargs.setdefault("by_alias", True)
+        return super().dict(**kwargs)
+
+    @classmethod
+    def parse_obj(cls, data: Any) -> "IdentityVerificationStepUpdatedWebhook":
+        """Parse a dict into the object. Takes same keyword arguments as pydantic.BaseModel.parse_obj"""
+        return super().parse_obj(data)
+
+    @classmethod
+    def parse_raw(cls, b: Union[bytes, str], **kwargs: Any) -> "IdentityVerificationStepUpdatedWebhook":
+        """Parse a json string into the object. Takes same keyword arguments as pydantic.BaseModel.parse_raw"""
+        return super().parse_raw(b, **kwargs)
