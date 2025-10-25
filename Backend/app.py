@@ -332,8 +332,8 @@ def get_transactions():
 
 
 # Plaid integration removed — endpoints deleted per user request
-client_id='68fc90a53089da001f96572c'
-secret = 'b6acf18dba24078a0985ba402443b3'
+client_id = os.getenv('CLIENT_ID_PLAID')
+secret = os.getenv('SECRET_PLAID')
 configuration = plaid.Configuration(
     host=plaid.Environment.Sandbox,
     api_key={
