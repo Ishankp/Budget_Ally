@@ -46,11 +46,7 @@ export default function App() {
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
     const [success, setSuccess] = useState('')
-    // Plaid / balances UI state (must be top-level hooks — do not place inside conditionals)
-    const [plaidLinked, setPlaidLinked] = useState(false)
-    const [balances, setBalances] = useState(null)
-    const [plaidError, setPlaidError] = useState('')
-    const [plaidLoading, setPlaidLoading] = useState(false)
+    // Plaid integration removed — clearing related UI state
 
     useEffect(() => {
         if (token) {
@@ -131,84 +127,15 @@ export default function App() {
     }
 
     if (mode === 'hello') {
-        async function connectPlaid() {
-            setPlaidError('')
-            setPlaidLoading(true)
-            // Step 1: get link token
-            try {
-                const res = await fetch(`${API}/api/plaid/link_token`, {
-                    method: 'POST',
-                    headers: { Authorization: `Bearer ${token}` },
-                })
-                const body = await res.json()
-                if (!res.ok || !body.link_token) {
-                    setPlaidError(body.error || 'Could not get link token')
-                    setPlaidLoading(false)
-                    return
-                }
-                // Step 2: open Plaid Link (demo: just simulate success)
-                // In production, use Plaid Link SDK. Here, simulate linking and call exchange endpoint.
-                // For demo, prompt for public_token
-                const public_token = window.prompt('Enter Plaid public_token (sandbox):', '')
-                if (!public_token) {
-                    setPlaidError('No public_token entered')
-                    setPlaidLoading(false)
-                    return
-                }
-                const exchRes = await fetch(`${API}/api/plaid/exchange_public_token`, {
-                    method: 'POST',
-                    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ public_token }),
-                })
-                const exchBody = await exchRes.json()
-                if (!exchRes.ok) {
-                    setPlaidError(exchBody.error || 'Could not exchange token')
-                    setPlaidLoading(false)
-                    return
-                }
-                setPlaidLinked(true)
-                // Step 3: fetch balances
-                const balRes = await fetch(`${API}/api/plaid/balance`, {
-                    headers: { Authorization: `Bearer ${token}` },
-                })
-                const balBody = await balRes.json()
-                if (balRes.ok && balBody.accounts) {
-                    setBalances(balBody.accounts)
-                } else {
-                    setPlaidError(balBody.error || 'Could not fetch balances')
-                }
-            } catch (err) {
-                setPlaidError('Plaid connection failed')
-            }
-            setPlaidLoading(false)
-        }
-
         return (
             <div style={cardStyle}>
                 <h1 style={{ color: '#0b5cff', marginBottom: 24 }}>{message}</h1>
                 <div style={{ display: 'flex', gap: 12, marginBottom: 24 }}>
                     <button style={buttonStyle} onClick={logout}>Sign Out</button>
-                    <button style={buttonStyle} onClick={connectPlaid} disabled={plaidLoading || plaidLinked}>
-                        {plaidLinked ? 'Plaid Connected' : 'Connect to Plaid'}
-                    </button>
                 </div>
-                {plaidLoading && <div style={{ color: '#888', marginTop: 12 }}>Connecting to Plaid...</div>}
-                {plaidLinked && balances && (
-                    <div>
-                        <h3 style={{ color: '#388e3c' }}>Plaid Linked!</h3>
-                        <div style={{ marginTop: 12 }}>
-                            <h4>Account Balances:</h4>
-                            <ul>
-                                {balances.map(acc => (
-                                    <li key={acc.account_id}>
-                                        <b>{acc.name}</b>: ${acc.balances.current} ({acc.type})
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                    </div>
-                )}
-                {plaidError && <div style={{ color: '#d32f2f', marginTop: 12 }}>{plaidError}</div>}
+                <div style={{ marginTop: 12 }}>
+                    <p style={{ color: '#555' }}>Plaid integration has been removed. You can re-add it later.</p>
+                </div>
             </div>
         )
     }

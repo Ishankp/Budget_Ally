@@ -61,10 +61,31 @@ Verifying the React app
 - The React entry is `index.html` (loads `/src/main.jsx`) and mounts into `<div id="root"></div>`.
 - If you see a blank page or the UI loads then disappears, stop the dev server, close editors that might hold files, then run `npm run dev` again and check the browser console and the terminal logs for errors.
 
+
+Removing Plaid dependencies (cleanup)
+-------------------------------------
+If you previously installed Plaid packages, you can fully remove them from the backend virtual environment with:
+
+```powershell
+cd 'C:\Users\Ishan Patel\Downloads\Hackathon\Budget_Ally\Backend'
+. .\.venv\Scripts\Activate.ps1
+pip uninstall -y plaid2 plaid-python
+```
+
+Or, to recreate a clean venv from requirements.txt:
+
+```powershell
+cd 'C:\Users\Ishan Patel\Downloads\Hackathon\Budget_Ally\Backend'
+Remove-Item -Recurse -Force .venv
+python -m venv .venv
+. .\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+
 Features
 --------
-- Register and login forms (credentials stored in SQLite)
-- After login, see a personalized Hello message
-- Token-based authentication
+Register and login forms (credentials stored in SQLite)
+After login, see a personalized Hello message
+Token-based authentication
 
 If you'd like, I can also add one-line Run commands to PowerShell scripts or provide a small BAT file to start backend + frontend together.
