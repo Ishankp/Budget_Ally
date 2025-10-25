@@ -1,11 +1,161 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
+
+const API = 'http://localhost:5000'
+
+const cardStyle = {
+	maxWidth: 340,
+	margin: '40px auto',
+	background: '#fff',
+	borderRadius: 12,
+	boxShadow: '0 2px 16px #0002',
+	padding: 32,
+	fontFamily: 'Segoe UI, Arial, sans-serif',
+}
+const inputStyle = {
+	width: '100%',
+	padding: '10px',
+	margin: '8px 0',
+	borderRadius: 6,
+	border: '1px solid #ccc',
+	fontSize: 16,
+}
+const buttonStyle = {
+	padding: '10px 18px',
+	borderRadius: 6,
+	border: 'none',
+	background: '#0b5cff',
+	color: '#fff',
+	fontWeight: 600,
+	fontSize: 16,
+	cursor: 'pointer',
+	marginRight: 8,
+}
+const switchStyle = {
+	...buttonStyle,
+	background: '#eee',
+	color: '#333',
+	border: '1px solid #ccc',
+}
 
 export default function App() {
+	const [mode, setMode] = useState('login') // 'login' or 'register' or 'hello'
+	const [username, setUsername] = useState('')
+	const [password, setPassword] = useState('')
+	const [token, setToken] = useState(localStorage.getItem('token') || '')
+	const [message, setMessage] = useState('')
+	const [loading, setLoading] = useState(false)
+	const [error, setError] = useState('')
+	const [success, setSuccess] = useState('')
+
+	useEffect(() => {
+		if (token) {
+			setLoading(true)
+			fetch(`${API}/api/hello`, { headers: { Authorization: `Bearer ${token}` } })
+				.then(r => r.json())
+				.then(data => {
+					setLoading(false)
+					if (data.message) {
+						setMessage(data.message)
+						setMode('hello')
+					} else {
+						setToken('')
+						localStorage.removeItem('token')
+					}
+				})
+				.catch(() => {
+					setLoading(false)
+					setToken('')
+					localStorage.removeItem('token')
+				})
+		}
+	}, [token])
+
+	function doRegister(e) {
+		e.preventDefault()
+		setLoading(true)
+		setError('')
+		setSuccess('')
+		fetch(`${API}/api/register`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ username, password }),
+		})
+			.then(r => r.json().then(body => ({ ok: r.ok, body })))
+			.then(({ ok, body }) => {
+				setLoading(false)
+				if (ok) {
+					setSuccess('Registered! Please login.')
+					setMode('login')
+				} else {
+					setError(body.error || 'Register failed')
+				}
+			})
+	}
+
+	function doLogin(e) {
+		e.preventDefault()
+		setLoading(true)
+		setError('')
+		setSuccess('')
+		fetch(`${API}/api/login`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ username, password }),
+		})
+			.then(r => r.json().then(body => ({ ok: r.ok, body })))
+			.then(({ ok, body }) => {
+				setLoading(false)
+				if (ok && body.token) {
+					setToken(body.token)
+					localStorage.setItem('token', body.token)
+				} else {
+					setError(body.error || 'Login failed')
+				}
+			})
+	}
+
+	function logout() {
+		setToken('')
+		localStorage.removeItem('token')
+		setMode('login')
+		setUsername('')
+		setPassword('')
+		setMessage('')
+		setError('')
+		setSuccess('')
+	}
+
+	if (mode === 'hello') {
+		return (
+			<div style={cardStyle}>
+				<h1 style={{ color: '#0b5cff', marginBottom: 24 }}>{message}</h1>
+				<button style={buttonStyle} onClick={logout}>Logout</button>
+			</div>
+		)
+	}
+
 	return (
-		<div style={{ fontFamily: 'sans-serif', padding: 20 }}>
-			<h1>Hello, World! 👋</h1>
-			<p>This is the Budget Ally frontend running locally via Vite.</p>
-			<p>To connect to the backend, visit <code>http://localhost:5000</code> for the API.</p>
+		<div style={cardStyle}>
+			<h2 style={{ color: '#0b5cff', marginBottom: 16 }}>{mode === 'login' ? 'Login' : 'Register'}</h2>
+			<form onSubmit={mode === 'login' ? doLogin : doRegister}>
+				<label style={{ fontWeight: 500 }}>Username</label>
+				<input style={inputStyle} value={username} onChange={e => setUsername(e.target.value)} autoFocus />
+				<label style={{ fontWeight: 500 }}>Password</label>
+				<input style={inputStyle} type="password" value={password} onChange={e => setPassword(e.target.value)} />
+				<div style={{ marginTop: 18, display: 'flex', alignItems: 'center' }}>
+					<button type="submit" style={buttonStyle} disabled={loading}>{mode === 'login' ? 'Login' : 'Register'}</button>
+					<button type="button" style={switchStyle} onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(''); setSuccess(''); }}>
+						{mode === 'login' ? 'Switch to Register' : 'Switch to Login'}
+					</button>
+				</div>
+			</form>
+			{loading && <div style={{ marginTop: 16, color: '#888' }}>Loading...</div>}
+			{error && <div style={{ marginTop: 16, color: '#d32f2f', fontWeight: 500 }}>{error}</div>}
+			{success && <div style={{ marginTop: 16, color: '#388e3c', fontWeight: 500 }}>{success}</div>}
+			<p style={{ marginTop: 24, color: '#555', fontSize: 14 }}>
+				Credentials are stored in SQLite and a simple token is used for authentication.<br />
+				<span style={{ color: '#0b5cff' }}>Budget Ally Demo</span>
+			</p>
 		</div>
 	)
 }

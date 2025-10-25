@@ -17,3 +17,8 @@ The API will be available at http://localhost:5000. Endpoints:
 - POST /api/items  (JSON body: {name, amount, category})
 - PUT /api/items/<id>
 - DELETE /api/items/<id>
+
+Auth endpoints (simple demo):
+- POST /api/register  (JSON {username, password}) -> 201
+- POST /api/login     (JSON {username, password}) -> { token }
+- GET /api/hello      (requires Authorization: Bearer <token>) -> protected message
