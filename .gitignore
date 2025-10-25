@@ -1,5 +1,6 @@
 # Environment Variables
 Backend/.venv
+Backend/.env
 
 # Ignore node modules
 Frontend/node_modules/

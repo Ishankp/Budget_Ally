@@ -28,6 +28,7 @@ def create_sandbox_public_token():
 from flask import Flask, jsonify, request, abort
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
+from dotenv import load_dotenv
 import os
 import os
 import json
@@ -35,6 +36,9 @@ import uuid
 import hashlib
 import plaid
 from plaid.api import plaid_api
+
+# Load Environment Varialbes for API Key
+load_dotenv()
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, 'budget.db')
