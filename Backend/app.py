@@ -69,6 +69,15 @@ class User(db.Model):
         return self.token
 
 
+class PlaidToken(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    access_token = db.Column(db.String(512), nullable=False)
+
+    def to_dict(self):
+        return {'user_id': self.user_id, 'access_token': self.access_token}
+
+
 def create_tables():
     db.create_all()
 
@@ -187,16 +196,19 @@ def plaid_link_token():
     if not user:
         return jsonify({'error': 'unauthorized'}), 401
     # plaid2 expects dict arguments
-    response = plaid_client.link_token_create(
-        {
-            "products": ["auth", "transactions", "balance"],
-            "client_name": "Budget Ally",
-            "country_codes": ["US"],
-            "language": "en",
-            "user": {"client_user_id": str(user.id)}
-        }
-    )
-    return jsonify(response)
+    try:
+        response = plaid_client.link_token_create(
+            {
+                "products": ["auth", "transactions", "balance"],
+                "client_name": "Budget Ally",
+                "country_codes": ["US"],
+                "language": "en",
+                "user": {"client_user_id": str(user.id)}
+            }
+        )
+        return jsonify(response)
+    except Exception as e:
+        return jsonify({'error': 'Could not create link token', 'details': str(e)}), 500
 
 
 @app.route('/api/plaid/exchange_public_token', methods=['POST'])
@@ -208,21 +220,37 @@ def plaid_exchange_public_token():
     public_token = data.get('public_token')
     if not public_token:
         return jsonify({'error': 'public_token required'}), 400
-    exchange_response = plaid_client.item_public_token_exchange({"public_token": public_token})
-    access_token = exchange_response.get('access_token')
-    # Store access_token in user record (for demo, not secure for prod)
-    user.token = access_token
-    db.session.commit()
-    return jsonify({'message': 'Plaid linked', 'access_token': access_token})
+    try:
+        exchange_response = plaid_client.item_public_token_exchange({"public_token": public_token})
+        access_token = exchange_response.get('access_token')
+        if not access_token:
+            return jsonify({'error': 'No access_token returned from Plaid', 'details': exchange_response}), 502
+        # Store access_token in a separate PlaidToken table (do not overwrite the user's auth token)
+        pt = PlaidToken.query.filter_by(user_id=user.id).first()
+        if pt:
+            pt.access_token = access_token
+        else:
+            pt = PlaidToken(user_id=user.id, access_token=access_token)
+            db.session.add(pt)
+        db.session.commit()
+        return jsonify({'message': 'Plaid linked', 'access_token': access_token})
+    except Exception as e:
+        return jsonify({'error': 'Could not exchange public token', 'details': str(e)}), 500
 
 
 @app.route('/api/plaid/balance', methods=['GET'])
 def plaid_balance():
     user = get_user_from_token()
-    if not user or not user.token:
+    if not user:
         return jsonify({'error': 'unauthorized'}), 401
-    balance_response = plaid_client.accounts_balance_get({"access_token": user.token})
-    return jsonify(balance_response)
+    pt = PlaidToken.query.filter_by(user_id=user.id).first()
+    if not pt or not pt.access_token:
+        return jsonify({'error': 'no_plaid_link'}), 400
+    try:
+        balance_response = plaid_client.accounts_balance_get({"access_token": pt.access_token})
+        return jsonify(balance_response)
+    except Exception as e:
+        return jsonify({'error': 'Could not fetch balances', 'details': str(e)}), 500
 
 
 if __name__ == '__main__':
