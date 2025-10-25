@@ -126,27 +126,37 @@ export default function App() {
         setSuccess('')
     }
 
-    // Transaction count state
-    const [txCount, setTxCount] = useState(0)
+    // Transaction pagination state
+    const [transactions, setTransactions] = useState([])
+    const [page, setPage] = useState(1)
+    const [totalTx, setTotalTx] = useState(0)
+    const [hasNext, setHasNext] = useState(false)
+    const [hasPrev, setHasPrev] = useState(false)
     const [txLoading, setTxLoading] = useState(false)
 
     useEffect(() => {
         if (mode === 'hello' && token) {
             setTxLoading(true)
-            fetch(`${API}/api/transactions?page=1&per_page=1000`, {
+            fetch(`${API}/api/transactions?page=${page}&per_page=10`, {
                 headers: { Authorization: `Bearer ${token}` }
             })
                 .then(r => r.json())
                 .then(data => {
-                    setTxCount(data.total || 0)
+                    setTransactions(data.transactions || [])
+                    setTotalTx(data.total || 0)
+                    setHasNext(data.has_next || false)
+                    setHasPrev(data.has_prev || false)
                     setTxLoading(false)
                 })
                 .catch(() => {
-                    setTxCount(0)
+                    setTransactions([])
+                    setTotalTx(0)
+                    setHasNext(false)
+                    setHasPrev(false)
                     setTxLoading(false)
                 })
         }
-    }, [mode, token])
+    }, [mode, token, page])
 
     if (mode === 'hello') {
         return (
@@ -156,20 +166,60 @@ export default function App() {
                     <button style={buttonStyle} onClick={logout}>Sign Out</button>
                 </div>
                 <div style={{ marginTop: 12 }}>
-                    <h3 style={{ color: '#333', marginBottom: 8 }}>Transactions in Database</h3>
+                    <h3 style={{ color: '#333', marginBottom: 8 }}>
+                        Recent Transactions ({totalTx} total)
+                    </h3>
                     {txLoading ? (
-                        <div style={{ color: '#888' }}>Checking database...</div>
-                    ) : (
-                        <div style={{ padding: 16, background: '#f5f5f5', borderRadius: 8, marginBottom: 12 }}>
-                            <p style={{ margin: 0, fontSize: 18, fontWeight: 600, color: '#333' }}>
-                                {txCount} transaction{txCount !== 1 ? 's' : ''} found in database
-                            </p>
-                            {txCount > 0 && (
-                                <p style={{ margin: '8px 0 0', color: '#666', fontSize: 14 }}>
-                                    ✓ Data successfully stored from Plaid sandbox
-                                </p>
-                            )}
+                        <div style={{ color: '#888' }}>Loading transactions...</div>
+                    ) : transactions.length === 0 ? (
+                        <div style={{ padding: 16, background: '#f5f5f5', borderRadius: 8 }}>
+                            <p style={{ margin: 0, color: '#666' }}>No transactions found.</p>
                         </div>
+                    ) : (
+                        <>
+                            <div style={{ marginBottom: 12 }}>
+                                {transactions.map((tx, idx) => (
+                                    <div key={tx.transaction_id} style={{
+                                        padding: 12,
+                                        marginBottom: 8,
+                                        background: '#f9f9f9',
+                                        borderRadius: 8,
+                                        border: '1px solid #e0e0e0'
+                                    }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                                            <span style={{ fontWeight: 600, color: '#333' }}>{tx.name}</span>
+                                            <span style={{ fontWeight: 600, color: tx.amount > 0 ? '#d32f2f' : '#388e3c' }}>
+                                                ${Math.abs(tx.amount).toFixed(2)}
+                                            </span>
+                                        </div>
+                                        <div style={{ fontSize: 13, color: '#666' }}>
+                                            <div>{tx.date}</div>
+                                            {tx.merchant_name && <div>Merchant: {tx.merchant_name}</div>}
+                                            {tx.category && <div>Category: {tx.category}</div>}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <button 
+                                    style={{...buttonStyle, opacity: hasPrev ? 1 : 0.5}} 
+                                    onClick={() => setPage(page - 1)} 
+                                    disabled={!hasPrev || txLoading}
+                                >
+                                    ← Previous
+                                </button>
+                                <span style={{ color: '#666', fontSize: 14 }}>
+                                    Page {page}
+                                </span>
+                                <button 
+                                    style={{...buttonStyle, opacity: hasNext ? 1 : 0.5}} 
+                                    onClick={() => setPage(page + 1)} 
+                                    disabled={!hasNext || txLoading}
+                                >
+                                    Next →
+                                </button>
+                            </div>
+                        </>
                     )}
                 </div>
             </div>
