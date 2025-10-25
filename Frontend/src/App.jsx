@@ -188,8 +188,8 @@ export default function App() {
                                     }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                                             <span style={{ fontWeight: 600, color: '#333' }}>{tx.name}</span>
-                                            <span style={{ fontWeight: 600, color: tx.amount > 0 ? '#d32f2f' : '#388e3c' }}>
-                                                ${Math.abs(tx.amount).toFixed(2)}
+                                            <span style={{ fontWeight: 600, color: tx.amount > 0 ? '#388e3c' : '#d32f2f' }}>
+                                                {tx.amount > 0 ? "+$" + Math.abs(tx.amount).toFixed(2) : "-$" + Math.abs(tx.amount).toFixed(2)}
                                             </span>
                                         </div>
                                         <div style={{ fontSize: 13, color: '#666' }}>
