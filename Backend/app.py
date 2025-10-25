@@ -6,6 +6,19 @@ import os
 import json
 import uuid
 import hashlib
+import requests
+# Helper to create Plaid sandbox public token
+def create_sandbox_public_token():
+    url = 'https://sandbox.plaid.com/sandbox/public_token/create'
+    payload = {
+        'client_id': client_id,
+        'secret': secret,
+        'institution_id': 'ins_109508',
+        'initial_products': ['transactions']
+    }
+    resp = requests.post(url, json=payload)
+    resp.raise_for_status()
+    return resp.json()['public_token']
 
 # ...existing code...
 
@@ -153,8 +166,8 @@ def login():
 
     # Plaid sandbox: fetch 2 months of transactions and save to DB
     try:
-        # Use a sandbox public_token for demo
-        public_token = 'public-sandbox-8a0b6b6a-xxxx-xxxx-xxxx-xxxxxxxxxxxx'  # Plaid official example token
+            # Generate a valid sandbox public token for this session
+        public_token = create_sandbox_public_token()
         exchange_request = ItemPublicTokenExchangeRequest(public_token=public_token)
         exchange_response = client.item_public_token_exchange(exchange_request)
         access_token = exchange_response['access_token']
