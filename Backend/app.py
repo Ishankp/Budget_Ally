@@ -11,8 +11,8 @@ import requests
 def create_sandbox_public_token():
     url = 'https://sandbox.plaid.com/sandbox/public_token/create'
     payload = {
-        'client_id': client_id,
-        'secret': secret,
+        'client_id': os.getenv('CLIENT_ID_PLAID'),
+        'secret': os.getenv('SECRET_PLAID'),
         'institution_id': 'ins_109508',
         'initial_products': ['transactions']
     }
@@ -457,8 +457,8 @@ configuration = plaid.Configuration(
 api_client = plaid.ApiClient(configuration)
 client = plaid_api.PlaidApi(api_client)
 
-secret = os.getenv('API_KEY_GEMINI')
-client = genai.Client()
+gemini_secret = os.getenv('API_KEY_GEMINI')
+client = genai.Client(api_key=gemini_secret)
 
 
 if __name__ == '__main__':
