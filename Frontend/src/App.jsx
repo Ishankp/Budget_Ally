@@ -245,19 +245,19 @@ export default function App() {
                             Get personalized, judgment-free financial advice based on your transactions.
                         </p>
                         <form onSubmit={askAI}>
-                            <input 
+                            {/* <input 
                                 style={{...inputStyle, marginBottom: 12}}
                                 placeholder="e.g., How can I save $100 this month?"
                                 value={aiQuestion}
                                 onChange={e => setAiQuestion(e.target.value)}
                                 disabled={aiLoading}
-                            />
+                            /> */}
                             <button 
                                 type="submit" 
                                 style={{...buttonStyle, background: '#28a745', width: '100%'}}
                                 disabled={aiLoading || !aiQuestion.trim()}
                             >
-                                {aiLoading ? 'Thinking...' : 'Get Advice'}
+                                {aiLoading ? 'Thinking...' : 'Generate Budget Plan'}
                             </button>
                         </form>
                         {aiLoading && (
