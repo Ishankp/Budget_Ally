@@ -458,9 +458,59 @@ def ai_chat():
         question = data.get("question", "").strip()
         if not question:
             return jsonify({"response": "Please provide a question."}), 400
+
+        user = get_user_from_token()
+        if not user:
+            return jsonify({'error': 'unauthorized'}), 401
+    
+        # Get all user's transactions
+        transactions = Transaction.query.filter_by(user_id=user.id).all()
+    
+        # Group spending by category (using the category already set by database trigger)
+        categories = {}
+        total_spending = 0.0
+    
+        for t in transactions:
+            if t.amount > 0:  # Only expenses (Plaid convention: positive = spending)
+                category = t.category if t.category else 'Miscellaneous'
+                if category not in categories:
+                    categories[category] = 0.0
+                categories[category] += t.amount
+                total_spending += t.amount
+        
+        total_outflow = 0.0  # Spending (positive amounts)
+        total_inflow = 0.0   # Income (negative amounts)
+    
+        for t in transactions:
+            if t.amount > 0:
+                total_outflow += t.amount
+            elif t.amount < 0:
+                total_inflow += abs(t.amount)
+    
+        # Convert to list format with percentages
+        labeld_data = [
+            {
+                'category': cat, 
+                'amount': round(amount, 2),
+                'percentage': round((amount / total_spending * 100), 1) if total_spending > 0 else 0
+            }
+            for cat, amount in categories.items()
+            if amount > 0
+        ]
+        
+        verbose = ""
+        for i, item in enumerate(labeld_data):
+            if i == len(labeld_data) - 1:
+                verbose += "and " + item['category'] + " is " + str(item['percentage']) + "% of spending."
+            else: 
+                verbose += item['category'] + " is " + str(item['percentage']) + "% of spending, "
         
         prompt_buffer = [
-            "While being concise and informative, create a budget based of the following request.",
+            "Be concise, informative and calm and keep in mind the following.",
+            "Educate me on the strategies employed for my financial situation.",
+            "Omit a reply to the last requests.",
+            "Here is my spending habits with" + str(total_spending) + " against my incoming " + str(total_inflow) + ".",
+            verbose,
         ]
 
         full_prompt = "\n".join(prompt_buffer + [f"User: {question}", "AI:"])
@@ -475,7 +525,6 @@ def ai_chat():
     except Exception as e:
         print("Error in ai_chat:", e)
         return jsonify({"response": "Error connecting to AI advisor."}), 500
-
 
 
 # Plaid Configuration - Used for fetching banking data

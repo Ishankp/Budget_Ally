@@ -225,7 +225,7 @@ export default function App() {
                                 setAiResponse('')
                                 
                                 // Preset prompt - automatically generates budget report
-                                const presetPrompt = "Create a budget report with my information."
+                                const presetPrompt = "Create a budget plan with my information."
                                 
                                 fetch(`${API}/api/ai-chat`, {
                                     method: 'POST',
