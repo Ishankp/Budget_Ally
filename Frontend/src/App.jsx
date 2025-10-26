@@ -188,33 +188,6 @@ export default function App() {
         }
     }, [mode, token])
 
-    // AI Chat function
-    function askAI(e) {
-        e.preventDefault()
-        if (!aiQuestion.trim()) return
-        
-        setAiLoading(true)
-        setAiResponse('')
-        
-        fetch(`${API}/api/ai-chat`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ question: aiQuestion })
-        })
-            .then(r => r.json())
-            .then(data => {
-                setAiLoading(false)
-                setAiResponse(data.response || 'Sorry, I could not process your request.')
-            })
-            .catch(err => {
-                setAiLoading(false)
-                setAiResponse('Error connecting to AI advisor. Please try again.')
-            })
-    }
-
     if (mode === 'hello') {
         return (
             <div style={cardStyle}>
@@ -244,22 +217,37 @@ export default function App() {
                         <p style={{ fontSize: 14, color: '#555', marginBottom: 16 }}>
                             Get personalized, judgment-free financial advice based on your transactions.
                         </p>
-                        <form onSubmit={askAI}>
-                            {/* <input 
-                                style={{...inputStyle, marginBottom: 12}}
-                                placeholder="e.g., How can I save $100 this month?"
-                                value={aiQuestion}
-                                onChange={e => setAiQuestion(e.target.value)}
-                                disabled={aiLoading}
-                            /> */}
-                            <button 
-                                type="submit" 
-                                style={{...buttonStyle, background: '#28a745', width: '100%'}}
-                                disabled={aiLoading || !aiQuestion.trim()}
-                            >
-                                {aiLoading ? 'Thinking...' : 'Generate Budget Plan'}
-                            </button>
-                        </form>
+                        <button 
+                            style={{...buttonStyle, background: '#28a745', width: '100%'}}
+                            disabled={aiLoading}
+                            onClick={() => {
+                                setAiLoading(true)
+                                setAiResponse('')
+                                
+                                // Preset prompt - automatically generates budget report
+                                const presetPrompt = "Create a budget report with my information."
+                                
+                                fetch(`${API}/api/ai-chat`, {
+                                    method: 'POST',
+                                    headers: {
+                                        'Authorization': `Bearer ${token}`,
+                                        'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify({ question: presetPrompt })
+                                })
+                                    .then(r => r.json())
+                                    .then(data => {
+                                        setAiLoading(false)
+                                        setAiResponse(data.response || 'Sorry, I could not process your request.')
+                                    })
+                                    .catch(err => {
+                                        setAiLoading(false)
+                                        setAiResponse('Error connecting to AI advisor. Please try again.')
+                                    })
+                            }}
+                        >
+                            {aiLoading ? 'Thinking...' : 'Generate Budget Plan'}
+                        </button>
                         {aiLoading && (
                             <div style={{ marginTop: 16, color: '#0b5cff', fontStyle: 'italic' }}>
                                 ✨ Analyzing your transactions and preparing advice...
