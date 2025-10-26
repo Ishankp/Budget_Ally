@@ -28,6 +28,7 @@ def create_sandbox_public_token():
 from flask import Flask, jsonify, request, abort
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
+from google import genai
 from dotenv import load_dotenv
 import os
 import os
@@ -379,6 +380,7 @@ def get_transactions():
     })
 
 
+# Plaid integration removed — endpoints deleted per user request
 # Spending by category endpoint - for pie chart visualization
 @app.route('/api/spending-by-category', methods=['GET'])
 def spending_by_category():
@@ -442,8 +444,8 @@ def spending_by_category():
 
 
 # Plaid Configuration - Used for fetching banking data
-client_id='68fc90a53089da001f96572c'
-secret = 'b6acf18dba24078a0985ba402443b3'
+client_id=os.getenv('PLAID_CLIENT_ID')
+secret = os.getenv('PLAID_SECRET')
 configuration = plaid.Configuration(
     host=plaid.Environment.Sandbox,
     api_key={
@@ -454,6 +456,9 @@ configuration = plaid.Configuration(
 
 api_client = plaid.ApiClient(configuration)
 client = plaid_api.PlaidApi(api_client)
+
+secret = os.getenv('API_KEY_GEMINI')
+client = genai.Client()
 
 
 if __name__ == '__main__':
