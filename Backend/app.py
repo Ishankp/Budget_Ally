@@ -11,8 +11,8 @@ import requests
 def create_sandbox_public_token():
     url = 'https://sandbox.plaid.com/sandbox/public_token/create'
     payload = {
-        'client_id': os.getenv('CLIENT_ID_PLAID'),
-        'secret': os.getenv('SECRET_PLAID'),
+        'client_id': os.getenv('PLAID_CLIENT_ID'),
+        'secret': os.getenv('PLAID_SECRET'),
         'institution_id': 'ins_109508',
         'initial_products': ['transactions']
     }
@@ -228,14 +228,14 @@ def login():
         
         print('[PLAID] Step 2: Exchanging public token for access token...')
         exchange_request = ItemPublicTokenExchangeRequest(public_token=public_token)
-        exchange_response = client.item_public_token_exchange(exchange_request)
+        exchange_response = plaid_client.item_public_token_exchange(exchange_request)
         access_token = exchange_response['access_token']
         print(f'[PLAID] ✓ Access token obtained: {access_token[:20]}...')
 
         # Get accounts
         print('[PLAID] Step 3: Fetching accounts...')
         accounts_request = AccountsGetRequest(access_token=access_token)
-        accounts_response = client.accounts_get(accounts_request)
+        accounts_response = plaid_client.accounts_get(accounts_request)
         accounts = accounts_response['accounts']
         print(f'[PLAID] ✓ Retrieved {len(accounts)} accounts')
         
@@ -256,9 +256,9 @@ def login():
         db.session.commit()
         print(f'[PLAID] ✓ Saved {len(accounts)} accounts to database')
 
-        # Get transactions for last 2 months
+        # Get transactions past month (Plaid Sandbox provides ~30 days of test data)
         end_date = datetime.date.today()
-        start_date = end_date - datetime.timedelta(days=60)
+        start_date = end_date - datetime.timedelta(days=30)
         print(f'[PLAID] Step 4: Fetching transactions from {start_date} to {end_date}...')
         
         # Plaid sandbox may need time to generate transactions, retry with delay
@@ -275,7 +275,7 @@ def login():
                     end_date=end_date,
                     options=TransactionsGetRequestOptions(count=100)
                 )
-                tx_response = client.transactions_get(tx_request)
+                tx_response = plaid_client.transactions_get(tx_request)
                 transactions = tx_response['transactions']
                 print(f'[PLAID] ✓ Retrieved {len(transactions)} transactions')
                 break
@@ -292,7 +292,7 @@ def login():
                 account_id=tx['account_id'],
                 user_id=user.id,
                 date=str(tx['date']),
-                amount=tx['amount'],
+                amount=tx['amount'],  # Standard Plaid convention: positive = spending
                 name=str(tx.get('name', '')),
                 merchant_name=str(tx.get('merchant_name', '')) if tx.get('merchant_name') else None,
                 category=','.join([str(c) for c in tx.get('category', [])]) if tx.get('category') else None,
@@ -380,7 +380,6 @@ def get_transactions():
     })
 
 
-# Plaid integration removed — endpoints deleted per user request
 # Spending by category endpoint - for pie chart visualization
 @app.route('/api/spending-by-category', methods=['GET'])
 def spending_by_category():
@@ -388,49 +387,28 @@ def spending_by_category():
     if not user:
         return jsonify({'error': 'unauthorized'}), 401
     
-    # Function to categorize transaction by looking up merchant in database
-    def categorize_transaction(name, merchant_name):
-        # Try exact match first
-        text = name.strip()
-        merchant = MerchantCategory.query.filter_by(merchant_name=text).first()
-        if merchant:
-            return merchant.category
-        
-        # Try partial match (check if any merchant name is contained in transaction name)
-        text_lower = name.lower()
-        all_merchants = MerchantCategory.query.all()
-        for merchant in all_merchants:
-            if merchant.merchant_name.lower() in text_lower:
-                return merchant.category
-        
-        # Default to Misc. if no match found
-        return 'Misc.'
-    
     # Get all user's transactions
     transactions = Transaction.query.filter_by(user_id=user.id).all()
     
-    # Initialize categories
-    categories = {
-        'housing': 0.0,
-        'utility': 0.0,
-        'food': 0.0,
-        'entertainment': 0.0,
-        'transportation': 0.0,
-        'Saving': 0.0,
-        'debt': 0.0,
-        'Withdrawl': 0.0,
-        'Misc.': 0.0
-    }
+    # Group spending by category (using the category already set by database trigger)
+    categories = {}
+    total_spending = 0.0
     
-    # Categorize and sum transactions
     for t in transactions:
-        if t.amount < 0:  # Only expenses (negative amounts)
-            cat = categorize_transaction(t.name, t.merchant_name)
-            categories[cat] += abs(t.amount)
+        if t.amount > 0:  # Only expenses (Plaid convention: positive = spending)
+            category = t.category if t.category else 'Miscellaneous'
+            if category not in categories:
+                categories[category] = 0.0
+            categories[category] += t.amount
+            total_spending += t.amount
     
-    # Convert to list format for chart (only categories with spending > 0)
+    # Convert to list format with percentages
     data = [
-        {'category': cat, 'amount': round(amount, 2)}
+        {
+            'category': cat, 
+            'amount': round(amount, 2),
+            'percentage': round((amount / total_spending * 100), 1) if total_spending > 0 else 0
+        }
         for cat, amount in categories.items()
         if amount > 0
     ]
@@ -438,7 +416,39 @@ def spending_by_category():
     # Sort by amount descending
     data.sort(key=lambda x: x['amount'], reverse=True)
     
-    return jsonify({'categories': data}), 200
+    return jsonify({
+        'categories': data,
+        'total_spending': round(total_spending, 2)
+    }), 200
+
+
+# Inflow/Outflow endpoint - cash flow summary
+@app.route('/api/cash-flow', methods=['GET'])
+def cash_flow():
+    user = get_user_from_token()
+    if not user:
+        return jsonify({'error': 'unauthorized'}), 401
+    
+    # Get all user's transactions
+    transactions = Transaction.query.filter_by(user_id=user.id).all()
+    
+    # Calculate inflow (negative amounts = money coming in) and outflow (positive = money going out)
+    total_outflow = 0.0  # Spending (positive amounts)
+    total_inflow = 0.0   # Income (negative amounts)
+    
+    for t in transactions:
+        if t.amount > 0:
+            total_outflow += t.amount
+        elif t.amount < 0:
+            total_inflow += abs(t.amount)
+    
+    net_cash_flow = total_inflow - total_outflow
+    
+    return jsonify({
+        'inflow': round(total_inflow, 2),
+        'outflow': round(total_outflow, 2),
+        'net': round(net_cash_flow, 2)
+    }), 200
 
 
 
@@ -455,10 +465,10 @@ configuration = plaid.Configuration(
 )
 
 api_client = plaid.ApiClient(configuration)
-client = plaid_api.PlaidApi(api_client)
+plaid_client = plaid_api.PlaidApi(api_client)
 
 gemini_secret = os.getenv('API_KEY_GEMINI')
-client = genai.Client(api_key=gemini_secret)
+gemini_client = genai.Client(api_key=gemini_secret)
 
 
 if __name__ == '__main__':

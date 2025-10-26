@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react'
+import SpendingPieChart from './SpendingPieChart'
 
 const API = 'http://localhost:5000'
 
 const cardStyle = {
-    maxWidth: 340,
+    maxWidth: 800,
     margin: '40px auto',
     background: '#fff',
     borderRadius: 12,
@@ -140,6 +141,10 @@ export default function App() {
     const [aiLoading, setAiLoading] = useState(false)
     const [showChat, setShowChat] = useState(false)
 
+    // Cash flow state
+    const [cashFlow, setCashFlow] = useState(null)
+    const [cashFlowLoading, setCashFlowLoading] = useState(false)
+
     useEffect(() => {
         if (mode === 'hello' && token) {
             setTxLoading(true)
@@ -163,6 +168,25 @@ export default function App() {
                 })
         }
     }, [mode, token, page])
+
+    // Fetch cash flow data
+    useEffect(() => {
+        if (mode === 'hello' && token) {
+            setCashFlowLoading(true)
+            fetch(`${API}/api/cash-flow`, {
+                headers: { Authorization: `Bearer ${token}` }
+            })
+                .then(r => r.json())
+                .then(data => {
+                    setCashFlow(data)
+                    setCashFlowLoading(false)
+                })
+                .catch(() => {
+                    setCashFlow(null)
+                    setCashFlowLoading(false)
+                })
+        }
+    }, [mode, token])
 
     // AI Chat function
     function askAI(e) {
@@ -258,6 +282,73 @@ export default function App() {
                         )}
                     </div>
                 )}
+
+                {/* Cash Flow Summary */}
+                {cashFlowLoading ? (
+                    <div style={{ textAlign: 'center', padding: '20px', color: '#888' }}>
+                        Loading cash flow...
+                    </div>
+                ) : cashFlow && (
+                    <div style={{ 
+                        display: 'flex', 
+                        gap: 16, 
+                        marginBottom: 24,
+                        justifyContent: 'space-around',
+                        flexWrap: 'wrap'
+                    }}>
+                        <div style={{
+                            flex: 1,
+                            minWidth: 200,
+                            padding: 20,
+                            background: '#e8f5e9',
+                            borderRadius: 8,
+                            border: '2px solid #4caf50',
+                            textAlign: 'center'
+                        }}>
+                            <div style={{ fontSize: 14, color: '#2e7d32', fontWeight: 600, marginBottom: 8 }}>
+                                💰 INFLOW
+                            </div>
+                            <div style={{ fontSize: 28, color: '#1b5e20', fontWeight: 700 }}>
+                                ${cashFlow.inflow.toFixed(2)}
+                            </div>
+                        </div>
+                        <div style={{
+                            flex: 1,
+                            minWidth: 200,
+                            padding: 20,
+                            background: '#ffebee',
+                            borderRadius: 8,
+                            border: '2px solid #f44336',
+                            textAlign: 'center'
+                        }}>
+                            <div style={{ fontSize: 14, color: '#c62828', fontWeight: 600, marginBottom: 8 }}>
+                                💸 OUTFLOW
+                            </div>
+                            <div style={{ fontSize: 28, color: '#b71c1c', fontWeight: 700 }}>
+                                ${cashFlow.outflow.toFixed(2)}
+                            </div>
+                        </div>
+                        <div style={{
+                            flex: 1,
+                            minWidth: 200,
+                            padding: 20,
+                            background: cashFlow.net >= 0 ? '#e3f2fd' : '#fff3e0',
+                            borderRadius: 8,
+                            border: `2px solid ${cashFlow.net >= 0 ? '#2196f3' : '#ff9800'}`,
+                            textAlign: 'center'
+                        }}>
+                            <div style={{ fontSize: 14, color: cashFlow.net >= 0 ? '#1565c0' : '#e65100', fontWeight: 600, marginBottom: 8 }}>
+                                📊 NET CASH FLOW
+                            </div>
+                            <div style={{ fontSize: 28, color: cashFlow.net >= 0 ? '#0d47a1' : '#bf360c', fontWeight: 700 }}>
+                                {cashFlow.net >= 0 ? '+' : ''}${cashFlow.net.toFixed(2)}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Spending Pie Chart */}
+                <SpendingPieChart token={token} />
 
                 <div style={{ marginTop: 12 }}>
                     <h3 style={{ color: '#333', marginBottom: 8 }}>
