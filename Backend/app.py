@@ -78,6 +78,13 @@ class Transaction(db.Model):
     merchant_name = db.Column(db.String(256), nullable=True)
     category = db.Column(db.String(128), nullable=True)
     pending = db.Column(db.Boolean, nullable=True)
+
+class MerchantCategory(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    merchant_name = db.Column(db.String(256), unique=True, nullable=False)
+    category = db.Column(db.String(128), nullable=False)
+    # Categories: housing, utility, food, entertainment, transportation, Saving, debt, Withdrawl, Misc.
+
 # Endpoint to delete all account and transaction records for the current user
 @app.route('/api/cleanup_accounts', methods=['POST'])
 def cleanup_accounts():
@@ -114,18 +121,59 @@ class User(db.Model):
 
 def create_tables():
     db.create_all()
+    # Pre-populate merchant categories if empty
+    if MerchantCategory.query.count() == 0:
+        default_merchants = [
+            # Food
+            ('KFC', 'food'),
+            ('McDonald\'s', 'food'),
+            ('Burger King', 'food'),
+            ('Starbucks', 'food'),
+            ('Subway', 'food'),
+            ('Pizza Hut', 'food'),
+            ('Taco Bell', 'food'),
+            ('Chipotle', 'food'),
+            ('Whole Foods', 'food'),
+            ('Trader Joe\'s', 'food'),
+            # Transportation
+            ('Uber', 'transportation'),
+            ('Lyft', 'transportation'),
+            ('United Airlines', 'transportation'),
+            ('American Airlines', 'transportation'),
+            ('Delta', 'transportation'),
+            ('Shell', 'transportation'),
+            ('Chevron', 'transportation'),
+            ('ExxonMobil', 'transportation'),
+            # Entertainment
+            ('Netflix', 'entertainment'),
+            ('Spotify', 'entertainment'),
+            ('Hulu', 'entertainment'),
+            ('AMC Theatres', 'entertainment'),
+            ('Regal Cinemas', 'entertainment'),
+            ('Touchstone Climbing', 'entertainment'),
+            # Utility
+            ('PG&E', 'utility'),
+            ('Verizon', 'utility'),
+            ('AT&T', 'utility'),
+            ('Comcast', 'utility'),
+            ('T-Mobile', 'utility'),
+            # Debt/Payments
+            ('CREDIT CARD', 'debt'),
+            ('AUTOMATIC PAYMENT', 'debt'),
+            # Saving/Deposits
+            ('DEPOSIT', 'Saving'),
+            ('ACH Electronic', 'Saving'),
+            ('GUSTO PAY', 'Saving'),
+        ]
+        for merchant, cat in default_merchants:
+            db.session.add(MerchantCategory(merchant_name=merchant, category=cat))
+        db.session.commit()
+        print(f'[DATABASE] Pre-populated {len(default_merchants)} merchant categories')
 
-# Register the create_tables function in a way compatible with multiple Flask versions.
-# Newer Flask has `before_serving`, older versions use `before_first_request`.
-if hasattr(app, 'before_serving'):
-    # register as a callback (before_serving is a decorator on newer Flask)
-    app.before_serving(create_tables)
-elif hasattr(app, 'before_first_request'):
-    app.before_first_request(create_tables)
-else:
-    # fallback: call within an application context so SQLAlchemy can access app configs
-    with app.app_context():
-        create_tables()
+
+# Create tables immediately when app starts
+with app.app_context():
+    create_tables()
 
 
 
@@ -331,7 +379,69 @@ def get_transactions():
     })
 
 
-# Plaid integration removed — endpoints deleted per user request
+# Spending by category endpoint - for pie chart visualization
+@app.route('/api/spending-by-category', methods=['GET'])
+def spending_by_category():
+    user = get_user_from_token()
+    if not user:
+        return jsonify({'error': 'unauthorized'}), 401
+    
+    # Function to categorize transaction by looking up merchant in database
+    def categorize_transaction(name, merchant_name):
+        # Try exact match first
+        text = name.strip()
+        merchant = MerchantCategory.query.filter_by(merchant_name=text).first()
+        if merchant:
+            return merchant.category
+        
+        # Try partial match (check if any merchant name is contained in transaction name)
+        text_lower = name.lower()
+        all_merchants = MerchantCategory.query.all()
+        for merchant in all_merchants:
+            if merchant.merchant_name.lower() in text_lower:
+                return merchant.category
+        
+        # Default to Misc. if no match found
+        return 'Misc.'
+    
+    # Get all user's transactions
+    transactions = Transaction.query.filter_by(user_id=user.id).all()
+    
+    # Initialize categories
+    categories = {
+        'housing': 0.0,
+        'utility': 0.0,
+        'food': 0.0,
+        'entertainment': 0.0,
+        'transportation': 0.0,
+        'Saving': 0.0,
+        'debt': 0.0,
+        'Withdrawl': 0.0,
+        'Misc.': 0.0
+    }
+    
+    # Categorize and sum transactions
+    for t in transactions:
+        if t.amount < 0:  # Only expenses (negative amounts)
+            cat = categorize_transaction(t.name, t.merchant_name)
+            categories[cat] += abs(t.amount)
+    
+    # Convert to list format for chart (only categories with spending > 0)
+    data = [
+        {'category': cat, 'amount': round(amount, 2)}
+        for cat, amount in categories.items()
+        if amount > 0
+    ]
+    
+    # Sort by amount descending
+    data.sort(key=lambda x: x['amount'], reverse=True)
+    
+    return jsonify({'categories': data}), 200
+
+
+
+
+# Plaid Configuration - Used for fetching banking data
 client_id='68fc90a53089da001f96572c'
 secret = 'b6acf18dba24078a0985ba402443b3'
 configuration = plaid.Configuration(

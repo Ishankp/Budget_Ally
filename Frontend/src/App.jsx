@@ -134,6 +134,12 @@ export default function App() {
     const [hasPrev, setHasPrev] = useState(false)
     const [txLoading, setTxLoading] = useState(false)
 
+    // AI Chat state
+    const [aiQuestion, setAiQuestion] = useState('')
+    const [aiResponse, setAiResponse] = useState('')
+    const [aiLoading, setAiLoading] = useState(false)
+    const [showChat, setShowChat] = useState(false)
+
     useEffect(() => {
         if (mode === 'hello' && token) {
             setTxLoading(true)
@@ -158,13 +164,101 @@ export default function App() {
         }
     }, [mode, token, page])
 
+    // AI Chat function
+    function askAI(e) {
+        e.preventDefault()
+        if (!aiQuestion.trim()) return
+        
+        setAiLoading(true)
+        setAiResponse('')
+        
+        fetch(`${API}/api/ai-chat`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ question: aiQuestion })
+        })
+            .then(r => r.json())
+            .then(data => {
+                setAiLoading(false)
+                setAiResponse(data.response || 'Sorry, I could not process your request.')
+            })
+            .catch(err => {
+                setAiLoading(false)
+                setAiResponse('Error connecting to AI advisor. Please try again.')
+            })
+    }
+
     if (mode === 'hello') {
         return (
             <div style={cardStyle}>
                 <h1 style={{ color: '#0b5cff', marginBottom: 24 }}>{message}</h1>
                 <div style={{ display: 'flex', gap: 12, marginBottom: 24 }}>
                     <button style={buttonStyle} onClick={logout}>Sign Out</button>
+                    <button 
+                        style={{...buttonStyle, background: showChat ? '#666' : '#28a745'}} 
+                        onClick={() => setShowChat(!showChat)}
+                    >
+                        {showChat ? 'Hide AI Coach' : '💬 AI Coach'}
+                    </button>
                 </div>
+
+                {/* AI Chat Interface */}
+                {showChat && (
+                    <div style={{ 
+                        marginBottom: 24, 
+                        padding: 20, 
+                        background: '#f0f8ff', 
+                        borderRadius: 8,
+                        border: '2px solid #0b5cff'
+                    }}>
+                        <h3 style={{ color: '#0b5cff', marginTop: 0, marginBottom: 12 }}>
+                            💡 Ask Your AI Financial Coach
+                        </h3>
+                        <p style={{ fontSize: 14, color: '#555', marginBottom: 16 }}>
+                            Get personalized, judgment-free financial advice based on your transactions.
+                        </p>
+                        <form onSubmit={askAI}>
+                            <input 
+                                style={{...inputStyle, marginBottom: 12}}
+                                placeholder="e.g., How can I save $100 this month?"
+                                value={aiQuestion}
+                                onChange={e => setAiQuestion(e.target.value)}
+                                disabled={aiLoading}
+                            />
+                            <button 
+                                type="submit" 
+                                style={{...buttonStyle, background: '#28a745', width: '100%'}}
+                                disabled={aiLoading || !aiQuestion.trim()}
+                            >
+                                {aiLoading ? 'Thinking...' : 'Get Advice'}
+                            </button>
+                        </form>
+                        {aiLoading && (
+                            <div style={{ marginTop: 16, color: '#0b5cff', fontStyle: 'italic' }}>
+                                ✨ Analyzing your transactions and preparing advice...
+                            </div>
+                        )}
+                        {aiResponse && (
+                            <div style={{ 
+                                marginTop: 16, 
+                                padding: 16, 
+                                background: '#fff', 
+                                borderRadius: 8,
+                                border: '1px solid #ddd',
+                                whiteSpace: 'pre-wrap'
+                            }}>
+                                <strong style={{ color: '#28a745', display: 'block', marginBottom: 8 }}>
+                                    💬 AI Advisor:
+                                </strong>
+                                {aiResponse}
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 <div style={{ marginTop: 12 }}>
                     <h3 style={{ color: '#333', marginBottom: 8 }}>
                         Recent Transactions ({totalTx} total)
