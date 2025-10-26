@@ -28,6 +28,7 @@ def create_sandbox_public_token():
 from flask import Flask, jsonify, request, abort
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
+from google import genai
 from dotenv import load_dotenv
 import os
 import os
@@ -344,6 +345,9 @@ configuration = plaid.Configuration(
 
 api_client = plaid.ApiClient(configuration)
 client = plaid_api.PlaidApi(api_client)
+
+secret = os.getenv('API_KEY_GEMINI')
+client = genai.Client()
 
 
 if __name__ == '__main__':
