@@ -441,6 +441,25 @@ def spending_by_category():
     return jsonify({'categories': data}), 200
 
 
+@app.route("/api/ai-chat", methods=["POST"])
+def ai_chat():
+    try:
+        data = request.get_json()
+        question = data.get("question", "").strip()
+        if not question:
+            return jsonify({"response": "Please provide a question."}), 400
+
+        response = gemini_client.models.generate_content(
+            model="gemini-2.5-flash", contents=question
+        )
+
+        ai_reply = response.text if hasattr(response, "text") else "No response generated."
+        return jsonify({"response": ai_reply})
+
+    except Exception as e:
+        print("Error in ai_chat:", e)
+        return jsonify({"response": "Error connecting to AI advisor."}), 500
+
 
 
 # Plaid Configuration - Used for fetching banking data
