@@ -448,9 +448,15 @@ def ai_chat():
         question = data.get("question", "").strip()
         if not question:
             return jsonify({"response": "Please provide a question."}), 400
+        
+        prompt_buffer = [
+            "While being concise and informative, create a budget based of the following request.",
+        ]
+
+        full_prompt = "\n".join(prompt_buffer + [f"User: {question}", "AI:"])
 
         response = gemini_client.models.generate_content(
-            model="gemini-2.5-flash", contents=question
+            model="gemini-2.5-flash", contents=full_prompt
         )
 
         ai_reply = response.text if hasattr(response, "text") else "No response generated."
