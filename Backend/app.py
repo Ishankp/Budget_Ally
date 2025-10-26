@@ -136,6 +136,12 @@ def create_tables():
             ('Chipotle', 'food'),
             ('Whole Foods', 'food'),
             ('Trader Joe\'s', 'food'),
+            ('Grocery Store', 'food'),
+            ('Supermarket', 'food'),
+            ('Weekly Groceries', 'food'),
+            ('Restaurant Dinner', 'food'),
+            ('Coffee Shop', 'food'),
+            ('Fast Food', 'food'),
             # Transportation
             ('Uber', 'transportation'),
             ('Lyft', 'transportation'),
@@ -145,6 +151,10 @@ def create_tables():
             ('Shell', 'transportation'),
             ('Chevron', 'transportation'),
             ('ExxonMobil', 'transportation'),
+            ('Gas Station', 'transportation'),
+            ('Uber Ride', 'transportation'),
+            ('Bus Pass Refill', 'transportation'),
+            ('Car Wash', 'transportation'),
             # Entertainment
             ('Netflix', 'entertainment'),
             ('Spotify', 'entertainment'),
@@ -152,19 +162,36 @@ def create_tables():
             ('AMC Theatres', 'entertainment'),
             ('Regal Cinemas', 'entertainment'),
             ('Touchstone Climbing', 'entertainment'),
+            ('Streaming Subscription', 'entertainment'),
+            ('Movie Theater', 'entertainment'),
+            ('Concert Ticket', 'entertainment'),
+            ('Gym Membership', 'entertainment'),
             # Utility
             ('PG&E', 'utility'),
             ('Verizon', 'utility'),
             ('AT&T', 'utility'),
             ('Comcast', 'utility'),
             ('T-Mobile', 'utility'),
+            ('Electric Bill', 'utility'),
+            ('Water Bill', 'utility'),
+            ('Internet Bill', 'utility'),
+            ('Utility Bills', 'utility'),
+            # Shopping
+            ('Clothing Store', 'shopping'),
+            ('Pharmacy', 'shopping'),
             # Debt/Payments
             ('CREDIT CARD', 'debt'),
             ('AUTOMATIC PAYMENT', 'debt'),
+            ('Rent Payment', 'debt'),
             # Saving/Deposits
             ('DEPOSIT', 'Saving'),
             ('ACH Electronic', 'Saving'),
             ('GUSTO PAY', 'Saving'),
+            ('Monthly Paycheck', 'Saving'),
+            ('Freelance Project', 'Saving'),
+            ('Transfer to Savings', 'Saving'),
+            # Miscellaneous
+            ('Donation', 'miscellaneous'),
         ]
         for merchant, cat in default_merchants:
             db.session.add(MerchantCategory(merchant_name=merchant, category=cat))
@@ -216,6 +243,11 @@ def login():
         return jsonify({'error': 'invalid credentials'}), 401
     token = user.generate_token()
     db.session.commit()
+
+        # Skip Plaid integration for user "Bob"
+    if user.username.lower() == 'bob':
+        print(f'[PLAID] Skipping Plaid fetch for excluded user: {user.username}')
+        return jsonify({'token': token})
 
     # Clear any existing Plaid data before fetching new data
     # This prevents duplicate/accumulating transactions on repeated logins
@@ -328,7 +360,15 @@ def logout():
     user = get_user_from_token()
     if not user:
         return jsonify({'error': 'unauthorized'}), 401
-    # Remove all account and transaction data for this user
+    
+    # Preserve Bob's data - don't delete on logout
+    if user.username.lower() == 'bob':
+        print(f'[LOGOUT] Preserving data for user: {user.username}')
+        user.token = None
+        db.session.commit()
+        return jsonify({'message': 'Logged out. Data preserved.'}), 200
+    
+    # Remove all account and transaction data for other users
     Account.query.filter_by(user_id=user.id).delete()
     Transaction.query.filter_by(user_id=user.id).delete()
     # Remove token to log out

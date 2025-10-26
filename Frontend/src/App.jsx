@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import ReactMarkdown from 'react-markdown'
 import SpendingPieChart from './SpendingPieChart'
 
 const API = 'http://localhost:5000'
@@ -270,7 +271,7 @@ export default function App() {
                                 <strong style={{ color: '#28a745', display: 'block', marginBottom: 8 }}>
                                     💬 AI Advisor:
                                 </strong>
-                                {aiResponse}
+                                <ReactMarkdown>{aiResponse}</ReactMarkdown>
                             </div>
                         )}
                     </div>
