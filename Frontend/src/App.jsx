@@ -125,6 +125,11 @@ export default function App() {
         setMessage('')
         setError('')
         setSuccess('')
+        
+        // Clear AI chat state
+        setAiResponse('')
+        setShowChat(false)
+        setAiLoading(false)
     }
 
     // Transaction pagination state

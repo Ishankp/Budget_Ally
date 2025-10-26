@@ -217,6 +217,13 @@ def login():
     token = user.generate_token()
     db.session.commit()
 
+    # Clear any existing Plaid data before fetching new data
+    # This prevents duplicate/accumulating transactions on repeated logins
+    Account.query.filter_by(user_id=user.id).delete()
+    Transaction.query.filter_by(user_id=user.id).delete()
+    db.session.commit()
+    print(f'[PLAID] Cleared old financial data for user: {user.username}')
+
     # Plaid sandbox: fetch 2 months of transactions and save to DB
     try:
         print(f'[PLAID] Starting Plaid fetch for user: {user.username}')
