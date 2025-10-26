@@ -11,8 +11,8 @@ import requests
 def create_sandbox_public_token():
     url = 'https://sandbox.plaid.com/sandbox/public_token/create'
     payload = {
-        'client_id': os.getenv('PLAID_CLIENT_ID'),
-        'secret': os.getenv('PLAID_SECRET'),
+        'client_id': client_id,
+        'secret': secret,
         'institution_id': 'ins_109508',
         'initial_products': ['transactions']
     }
@@ -451,11 +451,30 @@ def cash_flow():
     }), 200
 
 
+@app.route("/api/ai-chat", methods=["POST"])
+def ai_chat():
+    try:
+        data = request.get_json()
+        question = data.get("question", "").strip()
+        if not question:
+            return jsonify({"response": "Please provide a question."}), 400
+
+        response = gemini_client.models.generate_content(
+            model="gemini-2.5-flash", contents=question
+        )
+
+        ai_reply = response.text if hasattr(response, "text") else "No response generated."
+        return jsonify({"response": ai_reply})
+
+    except Exception as e:
+        print("Error in ai_chat:", e)
+        return jsonify({"response": "Error connecting to AI advisor."}), 500
+
 
 
 # Plaid Configuration - Used for fetching banking data
-client_id=os.getenv('PLAID_CLIENT_ID')
-secret = os.getenv('PLAID_SECRET')
+client_id = os.getenv('CLIENT_ID_PLAID')
+secret = os.getenv('SECRET_PLAID')
 configuration = plaid.Configuration(
     host=plaid.Environment.Sandbox,
     api_key={
