@@ -11,8 +11,8 @@ import requests
 def create_sandbox_public_token():
     url = 'https://sandbox.plaid.com/sandbox/public_token/create'
     payload = {
-        'client_id': os.getenv('CLIENT_ID_PLAID'),
-        'secret': os.getenv('SECRET_PLAID'),
+        'client_id': client_id,
+        'secret': secret,
         'institution_id': 'ins_109508',
         'initial_products': ['transactions']
     }
@@ -444,8 +444,8 @@ def spending_by_category():
 
 
 # Plaid Configuration - Used for fetching banking data
-client_id=os.getenv('PLAID_CLIENT_ID')
-secret = os.getenv('PLAID_SECRET')
+client_id = os.getenv('CLIENT_ID_PLAID')
+secret = os.getenv('SECRET_PLAID')
 configuration = plaid.Configuration(
     host=plaid.Environment.Sandbox,
     api_key={
@@ -458,7 +458,7 @@ api_client = plaid.ApiClient(configuration)
 client = plaid_api.PlaidApi(api_client)
 
 gemini_secret = os.getenv('API_KEY_GEMINI')
-client = genai.Client(api_key=gemini_secret)
+gemini_client = genai.Client(api_key=gemini_secret)
 
 
 if __name__ == '__main__':
